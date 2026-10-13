@@ -107,13 +107,13 @@ Every test scenario written in Phase 4 must cite the AC it verifies (e.g. `AC-3.
 - [ ] **AC-4.6** Insufficient/zero-baseline returned as structured states (not 5xx); 404 for unknown account; controllers thin, services encapsulate logic; typed DTOs.
 
 ### AC-5: Frontend UI/UX (Phase 3)
-- [ ] **AC-5.1** Account list links to detail.
-- [ ] **AC-5.2** Account detail shows header and overall comparison panel ("Is this normal for us?") with reporting period label and per event type cards (recent, baseline mean, status badge, percent when applicable).
-- [ ] **AC-5.3** Multi-location section shows per-location metrics; highlights Above/Below; sorted by status severity then location name.
-- [ ] **AC-5.4** Required states: loading, error, empty, insufficient history, zero baseline.
-- [ ] **AC-5.5** Real API integration (no mocks); network failures handled; typed API client; TS build clean.
-- [ ] **AC-5.6** Tailwind + shadcn/ui; accessible primitives/semantic HTML; no `any`.
-- [ ] **AC-5.7** Manual verification passes against live backend for: multi-location account, single-site account, zero-events account.
+- [x] **AC-5.1** Account list links to detail. *(Verified live: 20 accounts rendered, each name linking to `/accounts/:id`.)*
+- [x] **AC-5.2** Account detail shows header and overall comparison panel ("Is this normal for us?") with reporting period label and per event type cards (recent, baseline mean, status badge, percent when applicable). *(Verified live for account 6: heading, the "Week of 20 Jul – 26 Jul 2026" caption, the account's zone, one card per event type with the count, usual-week mean, status badge and signed percentage.)*
+- [x] **AC-5.3** Multi-location section shows per-location metrics; highlights Above/Below; sorted by status severity then location name. *(Verified live: all 15 sites of account 6 appear in a captioned table, rows grouped per site with a "Needs a look" marker when a site moved, and the furthest-from-usual site listed first. A single-location account correctly shows no table.)*
+- [x] **AC-5.4** Required states: loading, error, empty, insufficient history, zero baseline. *(All five verified live: a polite `role="status"` loading state; a retryable `role="alert"` error state; an empty-list state; a "Not enough history yet" state when nothing can be compared; and a "No activity recorded" state for account 20.)*
+- [x] **AC-5.5** Real API integration (no mocks); network failures handled; typed API client; TS build clean. *(Verified: the app calls a same-origin `/api` proxied to the backend; there is no mock anywhere in `src/`. An unreachable backend produces the offline message plus a working "Try again" button. `tsc -b && vite build` is clean.)*
+- [x] **AC-5.6** Tailwind + shadcn/ui; accessible primitives/semantic HTML; no `any`. *(Verified: Tailwind v4 via `@tailwindcss/vite` with shadcn tokens, and shadcn Button/Card/Badge/Table/Skeleton primitives plus `components.json`. No `any` anywhere in `src/`. Semantics: one `h1` per page, `caption` and `scope="col"` headers on the table, `aria-live="polite"` on loading, `role="alert"` on errors, `aria-hidden` on decorative icons, and a screen-reader-only explanation beside each status badge.)*
+- [x] **AC-5.7** Manual verification passes against live backend for: multi-location account, single-site account, zero-events account. *(Verified against the running compose stack with an opt-in live smoke suite (`frontend/src/test/live-dashboard.spec.tsx`, 7 scenarios, real network): account 6 (15 locations), account 8 (single site, no table shown), account 20 (empty state, not an error).)*
 
 ### AC-6: Testing (BDD, meaningful business rules) (Phase 4)
 - [ ] **AC-6.1** Unit tests cover banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BASELINE_WEEKS/MIN_BASELINE_OBS), timezone boundaries/Monday start/UTC conversion, multi-location scoping, strict account scoping.
@@ -313,12 +313,24 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
 ### Phase 3 - Frontend implementation
 - **Goal:** Real API integration, dashboard views.
 - **Covers:** AC-5 — spec section 5.
+- **Status:** ✅ Complete.
+- **Delivered:**
+  - `src/api/` — typed client (`types.ts` mirrors the backend DTOs) and a same-origin `/api` call path with typed `ApiError` extraction.
+  - `src/hooks/useAsync.ts` — loading/error/success with abort-on-unmount and `reload` for retry.
+  - `src/components/` — `OverallComparison` (per-event-type cards + period caption), `LocationComparisonTable` (severity-sorted, grouped per site), `StatusBadge` (status + screen-reader explanation), `states.tsx` (loading/error/empty).
+  - `src/pages/` — `AccountsPage` (list) and `AccountDetailPage` (comparison + per-location).
+  - Routing via `react-router-dom`; `/api` proxied by Vite in dev/preview and by nginx in the container (`frontend/nginx.conf`).
+  - Tests: 3 routing smoke tests (always run) + 7 opt-in live smoke tests against a running backend.
 - **Tasks:**
   1. Create typed API client matching backend DTOs (share types if feasible).
   2. Build account list and account detail views with overall + multi-location comparison panels.
   3. Implement all required states (loading/error/empty/insufficient/zero-baseline). Use shadcn/ui components.
   4. Real API integration (no mocks). Handle failures.
-  5. **Verify:** Manual pass against live backend for: a multi-location account, a single-site account, and the zero-events account (identify/create such case if needed based on data). TypeScript build clean. Accessibility/basic UX checks.
+  5. **Verify:** Manual pass against live backend for: a multi-location account, a single-site account, and the zero-events account (identify/create such case if needed based on data). TypeScript build clean. Accessibility/basic UX checks. *(All verified — see AC-5.1 – AC-5.7. The three accounts are 6, 8 and 20; no synthetic account was needed, per R2.)*
+
+**Notes for Phase 4:**
+- The live smoke suite is opt-in (`RELAY_LIVE_API=1`) so the default `npm test` stays hermetic and needs no backend; Phase 4 should decide whether it joins CI.
+- The API contract the UI depends on is `frontend/src/api/types.ts`, a hand-written mirror of the backend DTOs. Any Phase 4 change to a response shape must change that file too.
 
 ### Phase 4 - Testing & hardening
 - **Goal:** Comprehensive BDD coverage of business rules; harden.
