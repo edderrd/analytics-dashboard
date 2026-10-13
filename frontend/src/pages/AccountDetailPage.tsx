@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
@@ -25,33 +25,34 @@ export function AccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const accountId = Number(id);
   const [searchParams, setSearchParams] = useSearchParams();
-  // Remembered so the picker stays mounted while a filtered request is in
-  // flight: reading the options from the pending response made it unmount and
-  // remount on every filter change, flashing away and losing focus.
-  const [knownLocations, setKnownLocations] = useState<string[]>([]);
   const selectedLocation = searchParams.get('location') ?? ALL_LOCATIONS;
-  const locationFilter = selectedLocation ? [selectedLocation] : undefined;
 
+  // `selectedLocation` is used directly inside the fetcher so the dependency
+  // list is honest; deriving an array here made the dependency look unused.
   const comparison = useAsync(
     useCallback(
-      (signal) => api.getComparison(accountId, { locations: locationFilter }, signal),
+      (signal) =>
+        api.getComparison(
+          accountId,
+          { locations: selectedLocation ? [selectedLocation] : undefined },
+          signal,
+        ),
       [accountId, selectedLocation],
     ),
     [accountId, selectedLocation],
   );
   const locations = useAsync(
     useCallback(
-      (signal) => api.getLocationComparisons(accountId, { locations: locationFilter }, signal),
+      (signal) =>
+        api.getLocationComparisons(
+          accountId,
+          { locations: selectedLocation ? [selectedLocation] : undefined },
+          signal,
+        ),
       [accountId, selectedLocation],
     ),
     [accountId, selectedLocation],
   );
-
-  useEffect(() => {
-    if (comparison.kind === 'success' && comparison.data.locations.length > 0) {
-      setKnownLocations(comparison.data.locations);
-    }
-  }, [comparison]);
 
   const onLocationChange = useCallback(
     (location: string) => {
@@ -71,8 +72,9 @@ export function AccountDetailPage() {
     );
   }
 
-  const allLocations =
-    comparison.kind === 'success' ? comparison.data.locations : knownLocations;
+  // `useAsync` keeps the previous result while a filtered request is in flight,
+  // so this stays populated across refetches and the picker never unmounts.
+  const allLocations = comparison.kind === 'success' ? comparison.data.locations : [];
   const showFilter = allLocations.length > 1;
 
   return (
