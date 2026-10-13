@@ -10,13 +10,14 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "dev": "npm run dev --workspaces",
-    "test": "npm run test --workspaces",
+    "test": "npm run test:backend && npm run test:frontend && npm run test:e2e",
+    "test:backend": "npm run test --workspace backend",
+    "test:frontend": "npm run test --workspace frontend",
+    "test:e2e": "npm run test:e2e --workspace backend",
     "verify": "node scripts/verify.mjs",
     "verify:live": "node scripts/verify.mjs --live",
     "build:backend": "npm run build --workspace backend",
-    "build:frontend": "npm run build --workspace frontend",
-    "test:backend": "npm run test --workspace backend",
-    "test:frontend": "npm run test --workspace frontend"
+    "build:frontend": "npm run build --workspace frontend"
   },
   "engines": {
     "node": ">=20"

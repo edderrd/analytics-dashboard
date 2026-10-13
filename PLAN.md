@@ -352,7 +352,8 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
   5. **Verify:** All tests pass; deterministic; no unverified claims. *(Verified: `npm run verify` passes every step; 51 unit + 62 integration + 27 live frontend scenarios. Two real defects were found and fixed in this phase — R18 and R19.)*
 
 **Notes for Phase 5:**
-- `npm run verify` is the single command to document in the README, alongside `npm run verify:live` and the compose workflow.
+- `npm test` at the repo root runs the backend unit tests, the frontend tests and the backend integration (Supertest) suites, in that order; it requires the database to be reachable because the integration suite provisions its own `relay_test` database.
+- `npm run verify` is the single command to document in the README, alongside `npm run verify:live` and the compose workflow. It also needs the database, for the same reason.
 - Two open items to surface as trade-offs rather than fix silently: the R20 product question about zero-baseline wording, and the R10 decision that quiet weeks count towards the baseline.
 - The reference database must stay pristine; any future synthetic scenario belongs in `relay_test`, never in the seeded one.
 
