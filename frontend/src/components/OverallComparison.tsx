@@ -142,7 +142,9 @@ export function OverallComparison({
     <section aria-labelledby="overall-heading" className="space-y-4">
       <div className="space-y-1">
         <h2 id="overall-heading" className="text-lg font-semibold">
-          Is this week normal for you?
+          {comparison.filteredLocations?.length
+            ? `Is this week normal for ${comparison.filteredLocations.join(', ')}?`
+            : 'Is this week normal for you?'}
         </h2>
         <PeriodCaption periods={comparison.periods} />
       </div>

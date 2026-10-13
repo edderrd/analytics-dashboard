@@ -42,15 +42,34 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   return (await response.json()) as T;
 }
 
+/** Options shared by the comparison endpoints. */
+export interface ComparisonQuery {
+  asOf?: string;
+  eventTypes?: string[];
+  locations?: string[];
+}
+
+function toQueryString(query: ComparisonQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.asOf) params.set('asOf', query.asOf);
+  if (query.eventTypes?.length) params.set('eventTypes', query.eventTypes.join(','));
+  if (query.locations?.length) params.set('locations', query.locations.join(','));
+  const serialised = params.toString();
+  return serialised ? `?${serialised}` : '';
+}
+
 export const api = {
   listAccounts: (signal?: AbortSignal) => request<AccountSummary[]>('/accounts', signal),
 
   getAccount: (id: number, signal?: AbortSignal) =>
     request<AccountDetail>(`/accounts/${id}`, signal),
 
-  getComparison: (id: number, signal?: AbortSignal) =>
-    request<AccountComparison>(`/accounts/${id}/comparison`, signal),
+  getComparison: (id: number, query?: ComparisonQuery, signal?: AbortSignal) =>
+    request<AccountComparison>(`/accounts/${id}/comparison${toQueryString(query)}`, signal),
 
-  getLocationComparisons: (id: number, signal?: AbortSignal) =>
-    request<LocationComparisonResponse>(`/accounts/${id}/comparison/locations`, signal),
+  getLocationComparisons: (id: number, query?: ComparisonQuery, signal?: AbortSignal) =>
+    request<LocationComparisonResponse>(
+      `/accounts/${id}/comparison/locations${toQueryString(query)}`,
+      signal,
+    ),
 };

@@ -51,6 +51,7 @@ export class ComparisonsController {
       id,
       this.validateAsOf(query.asOf),
       this.validateEventTypes(query.eventTypes),
+      query.locations,
     );
   }
 

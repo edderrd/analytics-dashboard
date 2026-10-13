@@ -21,10 +21,13 @@ import type { LocationComparisonResponse } from '@/api/types';
  */
 export function LocationComparisonTable({
   data,
-  onSelect,
+  scopeLabel,
+  onSelectLocation,
 }: {
   data: LocationComparisonResponse;
-  onSelect?: (eventType: string) => void;
+  /** Set when the view is filtered to a single site. */
+  scopeLabel?: string;
+  onSelectLocation?: (location: string) => void;
 }) {
   if (data.locations.length === 0) {
     return (
@@ -47,10 +50,12 @@ export function LocationComparisonTable({
     <section aria-labelledby="locations-heading" className="space-y-3">
       <div className="space-y-1">
         <h2 id="locations-heading" className="text-lg font-semibold">
-          By location
+          {scopeLabel ? `By location: ${scopeLabel}` : 'By location'}
         </h2>
         <p className="text-sm text-muted-foreground">
-          Sites whose week was furthest from their own usual are listed first.
+          {scopeLabel
+            ? 'Showing one site. Choose “All locations” to compare every site.'
+            : 'Sites whose week was furthest from their own usual are listed first. Choose a site to narrow the whole page to it.'}
         </p>
       </div>
 
@@ -87,7 +92,17 @@ export function LocationComparisonTable({
                       className="align-top font-medium"
                     >
                       <span className="flex flex-col items-start gap-1.5">
-                        <span>{location.location}</span>
+                        {onSelectLocation ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectLocation(location.location)}
+                            className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {location.location}
+                          </button>
+                        ) : (
+                          <span>{location.location}</span>
+                        )}
                         {needsAttention ? (
                           <Badge
                             variant="outline"
@@ -117,9 +132,9 @@ export function LocationComparisonTable({
         </Table>
       </div>
 
-      {onSelect ? (
+      {onSelectLocation ? (
         <p className="text-xs text-muted-foreground">
-          Select a metric to filter the view.
+          Select a site name to filter the whole page to it.
         </p>
       ) : null}
     </section>

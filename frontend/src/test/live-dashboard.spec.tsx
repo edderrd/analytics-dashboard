@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -34,9 +35,11 @@ describe.skipIf(!live)('live dashboard against a running backend', () => {
     vi.restoreAllMocks();
   });
 
-  function renderAccount(id: number) {
+  /** Renders the detail page at `/accounts/:id`, optionally with a query. */
+  function renderAccount(target: number | string) {
+    const path = typeof target === 'number' ? `/accounts/${target}` : target;
     return render(
-      <MemoryRouter initialEntries={[`/accounts/${id}`]}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/accounts/:id" element={<AccountDetailPage />} />
         </Routes>
@@ -85,6 +88,51 @@ describe.skipIf(!live)('live dashboard against a running backend', () => {
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: /by location/i })).toBeNull();
     });
+  });
+
+  it('Given a location is chosen, When rendered, Then the whole page narrows to that site (AC-5.8, AC-3.9)', async () => {
+    const user = userEvent.setup();
+    renderAccount(6);
+
+    const picker = await screen.findByRole('combobox', { name: /location/i });
+    const options = Array.from((picker as HTMLSelectElement).options).map((o) => o.value);
+    expect(options[0]).toBe('');
+    expect(options).toHaveLength(16); // "All locations" + 15 sites
+
+    await user.selectOptions(picker, 'Site A');
+
+    // The heading, the table and the totals all move to the chosen site.
+    expect(
+      await screen.findByRole('heading', { name: /is this week normal for Site A\?/i }),
+    ).toBeVisible();
+    expect(await screen.findByRole('heading', { name: /by location: Site A/i })).toBeVisible();
+
+    const table = screen.getByRole('table');
+    expect(table).toHaveTextContent('Site A');
+    expect(table).not.toHaveTextContent('Site B');
+  });
+
+  it('Given the filter is cleared, When rendered, Then every location comes back (AC-5.8)', async () => {
+    renderAccount(`/accounts/6?location=${encodeURIComponent('Site A')}`);
+
+    const picker = await screen.findByRole('combobox', { name: /location/i });
+    expect((picker as HTMLSelectElement).value).toBe('Site A');
+    await screen.findByRole('heading', { name: /is this week normal for Site A\?/i });
+
+    fireEvent.change(picker, { target: { value: '' } });
+
+    expect(
+      await screen.findByRole('heading', { name: /is this week normal for you\?/i }),
+    ).toBeVisible();
+    const table = await screen.findByRole('table');
+    expect(table).toHaveTextContent('Site O');
+  });
+
+  it('Given a location that does not belong to the account, When requested, Then the API rejects it (AC-4.7)', async () => {
+    renderAccount(`/accounts/8?location=${encodeURIComponent('Site O')}`);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Site O/);
   });
 
   it('Given the zero-activity account, When rendered, Then an empty state is shown, not an error (AC-5.4, AC-5.7)', async () => {

@@ -118,11 +118,13 @@ export class ComparisonsService {
     id: number,
     asOf?: string,
     eventTypes: ComparableEventType[] = [...COMPARABLE_EVENT_TYPES],
+    locationFilter?: string[],
   ): Promise<AccountComparisonDto> {
     const { account, locations } = await this.requireAccountWithLocations(id);
+    const requested = this.validateLocationFilter(locationFilter, locations);
     const periods = await this.resolvePeriods(account, asOf);
     const rows = await this.dailyCounts(account, periods);
-    const totals = this.collapse(rows, periods, undefined);
+    const totals = this.collapse(rows, periods, requested);
     const availableBaselineWeeks = await this.availableBaselineWeeks(account, periods);
 
     return {
@@ -130,7 +132,10 @@ export class ComparisonsService {
       accountName: account.name,
       periods: this.periodContext(periods, account.timezone),
       hasActivity: rows.length > 0,
+      // Always the full list, so a client can populate a location picker even
+      // when a filter is applied; `filteredLocations` says what is in scope.
       locations,
+      filteredLocations: requested ? [...requested] : null,
       totals: eventTypes.map((eventType) =>
         this.toEventTypeComparison(eventType, totals, periods, availableBaselineWeeks),
       ),
@@ -156,7 +161,7 @@ export class ComparisonsService {
       accountId: account.id,
       periods: this.periodContext(periods, account.timezone),
       locations: selected.map((location): LocationComparisonDto => {
-        const totals = this.collapse(rows, periods, location);
+        const totals = this.collapse(rows, periods, [location]);
         return {
           location,
           totals: eventTypes.map((eventType) =>
@@ -261,7 +266,7 @@ export class ComparisonsService {
   private collapse(
     rows: DailyCountRow[],
     periods: ComparisonPeriods,
-    location?: string,
+    allowedLocations?: string[] | null,
   ): ScopedTotals {
     const recentByType = new Map<string, number>();
     const baselineWeeksByType = new Map<string, number[]>();
@@ -280,8 +285,10 @@ export class ComparisonsService {
       return weekIndexByStart.get(weekStart);
     };
 
+    const allowed = allowedLocations ? new Set(allowedLocations) : null;
+
     for (const row of rows) {
-      if (location !== undefined && row.location !== location) continue;
+      if (allowed && !allowed.has(row.location)) continue;
       if (!recentByType.has(row.event_type)) continue;
       const type = row.event_type;
 

@@ -50,6 +50,8 @@ export interface AccountComparison {
   periods: PeriodContext;
   hasActivity: boolean;
   locations: string[];
+  /** Locations the returned totals are scoped to; null = whole account. */
+  filteredLocations: string[] | null;
   totals: EventTypeComparison[];
 }
 

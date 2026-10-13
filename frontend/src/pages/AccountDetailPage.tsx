@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 import { api } from '@/api/client';
@@ -11,21 +11,56 @@ import {
   OverallComparison,
 } from '@/components/OverallComparison';
 import { LocationComparisonTable } from '@/components/LocationComparisonTable';
+import { ALL_LOCATIONS, LocationFilter } from '@/components/LocationFilter';
 import { ErrorState, LoadingState } from '@/components/states';
 
-/** Account dashboard: the Monday-morning answer plus the per-location view
- *  (AC-5.2, AC-5.3). */
+/**
+ * Account dashboard: the Monday-morning answer plus the per-location view,
+ * optionally narrowed to a single site (AC-5.2, AC-5.3, AC-5.8).
+ *
+ * The selected location lives in the `?location=` query parameter, so a
+ * filtered view can be shared or bookmarked and the browser back button works.
+ */
 export function AccountDetailPage() {
   const { id } = useParams<{ id: string }>();
   const accountId = Number(id);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Remembered so the picker stays mounted while a filtered request is in
+  // flight: reading the options from the pending response made it unmount and
+  // remount on every filter change, flashing away and losing focus.
+  const [knownLocations, setKnownLocations] = useState<string[]>([]);
+  const selectedLocation = searchParams.get('location') ?? ALL_LOCATIONS;
+  const locationFilter = selectedLocation ? [selectedLocation] : undefined;
 
   const comparison = useAsync(
-    useCallback((signal) => api.getComparison(accountId, signal), [accountId]),
-    [accountId],
+    useCallback(
+      (signal) => api.getComparison(accountId, { locations: locationFilter }, signal),
+      [accountId, selectedLocation],
+    ),
+    [accountId, selectedLocation],
   );
   const locations = useAsync(
-    useCallback((signal) => api.getLocationComparisons(accountId, signal), [accountId]),
-    [accountId],
+    useCallback(
+      (signal) => api.getLocationComparisons(accountId, { locations: locationFilter }, signal),
+      [accountId, selectedLocation],
+    ),
+    [accountId, selectedLocation],
+  );
+
+  useEffect(() => {
+    if (comparison.kind === 'success' && comparison.data.locations.length > 0) {
+      setKnownLocations(comparison.data.locations);
+    }
+  }, [comparison]);
+
+  const onLocationChange = useCallback(
+    (location: string) => {
+      const next = new URLSearchParams(searchParams);
+      if (location === ALL_LOCATIONS) next.delete('location');
+      else next.set('location', location);
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
   );
 
   if (!Number.isInteger(accountId)) {
@@ -35,6 +70,10 @@ export function AccountDetailPage() {
       </main>
     );
   }
+
+  const allLocations =
+    comparison.kind === 'success' ? comparison.data.locations : knownLocations;
+  const showFilter = allLocations.length > 1;
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-8 px-6 py-10">
@@ -66,6 +105,17 @@ export function AccountDetailPage() {
         )}
       </div>
 
+      {showFilter ? (
+        <div className="max-w-xs">
+          <LocationFilter
+            locations={allLocations}
+            value={selectedLocation}
+            onChange={onLocationChange}
+            disabled={comparison.kind === 'loading'}
+          />
+        </div>
+      ) : null}
+
       {comparison.kind === 'loading' ? (
         <section aria-label="Loading comparison" className="space-y-4">
           <LoadingState label="Loading the latest complete week…" />
@@ -91,7 +141,11 @@ export function AccountDetailPage() {
         ) : locations.kind === 'error' ? (
           <ErrorState message={locations.message} onRetry={locations.reload} />
         ) : (
-          <LocationComparisonTable data={locations.data} />
+          <LocationComparisonTable
+            data={locations.data}
+            scopeLabel={selectedLocation || undefined}
+            onSelectLocation={onLocationChange}
+          />
         )
       ) : null}
     </main>

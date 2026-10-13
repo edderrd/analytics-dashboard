@@ -49,8 +49,13 @@ export class AccountComparisonDto {
   periods: PeriodContextDto;
   /** False when the account has no activity at all. */
   hasActivity: boolean;
-  /** Locations known for this account. */
+  /** Every location known for this account, so a client can populate a picker. */
   locations: string[];
+  /**
+   * Locations the returned `totals` are scoped to, or `null` when the response
+   * covers the whole account.
+   */
+  filteredLocations: string[] | null;
   totals: EventTypeComparisonDto[];
 }
 
