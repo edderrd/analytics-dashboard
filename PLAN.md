@@ -73,12 +73,12 @@ Every test scenario written in Phase 4 must cite the AC it verifies (e.g. `AC-3.
 - [x] **AC-1.5** No business logic implementation before Phase 0 inspection complete. *(Only a scaffold `/health` endpoint exists; comparison logic is Phase 2.)*
 
 ### AC-2: Data model, migrations, seed (Phase 1)
-- [ ] **AC-2.1** TypeORM entities (Account, ActivityEvent) match schema exactly (types, nullability, PK/FK, relations Account 1:N ActivityEvent).
-- [ ] **AC-2.2** Migrations translate `schema.sql` to TypeORM; idempotent; committed.
-- [ ] **AC-2.3** TypeScript seed preserves all data from `seed.sql`: 20 accounts, 12626 activity_events; values not regenerated/reordered/fabricated; order accounts before events.
-- [ ] **AC-2.4** Seed verification asserts counts and spot-checks samples; fails fast on mismatch.
-- [ ] **AC-2.5** Backend container runs `npm run migrate && npm run seed` against compose DB before `nest start`.
-- [ ] **AC-2.6** Fresh `docker compose up --build -d` succeeds with migrations applied and seed verified.
+- [x] **AC-2.1** TypeORM entities (Account, ActivityEvent) match schema exactly (types, nullability, PK/FK, relations Account 1:N ActivityEvent). *(Verified: `\d accounts` / `\d activity_events` in Postgres match `schema.sql` column-for-column — `timestamp without time zone`, correct varchar lengths, `duration_seconds`/`outcome` nullable, PK + FK. `outcome` deliberately left unconstrained per R4.)*
+- [x] **AC-2.2** Migrations translate `schema.sql` to TypeORM; idempotent; committed. *(Verified: `InitialSchema1710000000000` applies cleanly; a second `migration:run` reports "No migrations are pending". `down` reverses it.)*
+- [x] **AC-2.3** TypeScript seed preserves all data from `seed.sql`: 20 accounts, 12626 activity_events; values not regenerated/reordered/fabricated; order accounts before events. *(Verified two ways: `npm run seed:verify` compares the checked-in module to `seed.sql` field-by-field with a second, independently written parser; `npm run seed:verify-db` compares every row actually in Postgres to `seed.sql` as raw text. Both report an exact match. Accounts are inserted before events.)*
+- [x] **AC-2.4** Seed verification asserts counts and spot-checks samples; fails fast on mismatch. *(Verified: the runner asserts both counts, referential integrity (orphan events), earliest/latest timestamps and named spot-checks (account 20, event id 1); it exits non-zero on any mismatch and refuses to mutate a partially-seeded database. Both verifier scripts were proven to actually fail by deliberately corrupting data — see R6.)*
+- [x] **AC-2.5** Backend container runs `npm run migrate && npm run seed` against compose DB before `nest start`. *(Verified: compose `backend` command is `sh -c "npm run migration:run && npm run seed && node dist/main.js"`; container logs show migration → seed → Nest start in that order.)*
+- [x] **AC-2.6** Fresh `docker compose up --build -d` succeeds with migrations applied and seed verified. *(Verified from a deleted volume: build + up, db healthy, backend logs "Seed verified: 20 accounts, 12626 activity events", `/health` → 200, and `seed:verify-db` against the containerised DB reports an exact match with `seed.sql`.)*
 
 ### AC-3: Baseline/comparison correctness (Phase 2)
 - [ ] **AC-3.1** Boundaries computed in account-local time using IANA timezone; converted to UTC; week start (Monday) documented and applied consistently; inclusive/exclusive explicit.
@@ -260,12 +260,26 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
 ### Phase 1 - Migration + Seeds
 - **Goal:** Schema and data parity via TypeORM tooling.
 - **Covers:** AC-2 (spec section 2).
+- **Status:** ✅ Complete.
+- **Delivered:**
+  - Entities `Account` / `ActivityEvent` (one-to-many, composite indexes on `(account_id, occurred_at)` and `(account_id, location, occurred_at)` for the Phase 2 aggregations).
+  - Migration `1710000000000-InitialSchema` — a literal translation of `schema.sql`, plus the two additive indexes (`schema.sql` declares none).
+  - `data-source.ts` shared by the Nest app and the TypeORM CLI; session pinned to UTC via libpq options.
+  - `pg-timestamp.ts` — UTC-correct handling of `timestamp without time zone` (see R6).
+  - Seed artifacts: `scripts/generate-seed-data.mjs` (translates `seed.sql` → `seed-data.ts`), `scripts/verify-seed-data.mjs`, `scripts/verify-seeded-db.mjs`, and `seed/seed-runner.ts` (chunked inserts, verification, re-runnable).
+  - Scripts: `migrate`, `seed`, `migration:run|revert|show`, `seed:generate`, `seed:verify`, `seed:verify-db`.
+  - Compose backend command now runs migration → seed → start.
 - **Tasks:**
   1. Create TypeORM entities matching schema exactly (Account, ActivityEvent) with relations, constraints, indexes.
   2. Generate/author TypeORM migrations that produce the same DDL as `schema.sql` (idempotent structure).
   3. Translate `seed.sql` into TypeScript data module + seed runner inserting all data in dependency order (accounts before events). Preserve values; verify counts (accounts==20, events~12626) and spot-check samples; fail fast on mismatch.
   4. Configure backend container to run `npm run migrate && npm run seed` against compose `db` before `nest start`.
-  5. **Verify:** Fresh `docker compose up --build -d` completes; migrations applied; seed verified; DB state matches source intent.
+  5. **Verify:** Fresh `docker compose up --build -d` completes; migrations applied; seed verified; DB state matches source intent. *(All verified — see AC-2.1 – AC-2.6 evidence.)*
+
+**Notes for Phase 2:**
+- Timestamps must be read through the registered UTC parser and written as literals; never round-trip these columns through a naive `Date` (R6).
+- `typeorm` is pinned to the 0.3.x line and `@nestjs/typeorm` to 11.x on purpose: the `@nestjs/typeorm` 12.x release ships ESM-only and breaks the CommonJS Jest setup (R7).
+- To reset a partially-seeded database (e.g. after a failed seed), run `docker compose down -v` — the seed runner intentionally refuses to repair partial state rather than deleting reference data.
 
 ### Phase 2 - Backend API implementation
 - **Goal:** Read-only endpoints with computed comparisons.
@@ -317,3 +331,7 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
 - **R3 — `MIN_BASELINE_WEEKS` is unreachable on this dataset.** All 19 accounts with events have ~25 weeks of history, so the insufficient-history rule cannot fire for the default reporting window. *Impact:* Phase 4 must cover it via `asOf` shifted toward the data start (2026-02-01) or synthetic fixtures; the manual Phase 3 walkthrough will not surface it. Recorded so this is not mistaken for a missed edge case.
 - **R4 — `outcome` vocabulary is wider than `schema.sql` comments.** Observed values include `open` and `completed`, beyond those named in the schema comment. *Impact:* Phase 1 must keep `outcome` as unconstrained `varchar(40)` and must not add an enum/check based on the comment examples.
 - **R5 — `duration_seconds` is NULL for all non-call events**, not merely "only meaningful for calls". *Impact:* no change to the entity shape (still nullable integer); recorded so Phase 2 does not attempt duration aggregations across event types.
+- **R6 — Timestamps were silently shifted by the host time zone (bug found and fixed during Phase 1).** The first working seed stored `occurred_at` as `04:57:44` instead of the source `10:57:44`: node-postgres converts `timestamp without time zone` to and from JS `Date` using the **process** time zone (the host here was `America/Costa_Rica`, UTC-6). Two things made this dangerous: (a) the in-process assertion *passed*, because writing and reading were symmetric through the same lossy path, and (b) my first seed-module generator and its verifier were wrong in the *same* way (a double `slice(1,-1)` on already-unquoted values), so they agreed on corrupted data. *Fixes:* `src/database/pg-timestamp.ts` registers a UTC parser for OID 1114 (reads) and the seed writes timestamp literals rather than `Date` objects (writes); the generator uses strict `[^']*` capture groups and only collapses doubled quotes. *Guard-rails added:* `seed:verify` (module vs `seed.sql`, second parser strategy), `seed:verify-db` (Postgres raw text vs `seed.sql`, immune to host time zone), and both were proven to fail by deliberately corrupting data. *Impact:* Phase 2 must treat this as a live hazard — every timestamp read must go through the registered parser, and any new query should be checked with `seed:verify-db`-style raw-text comparison.
+- **R7 — `@nestjs/typeorm` pinned to 11.x, `typeorm` pinned to 0.3.x.** Neither is the newest release on purpose: `@nestjs/typeorm` 12.x is ESM-only and Jest's CommonJS runtime cannot parse it (`SyntaxError: Unexpected token 'export'`), and `@nestjs/typeorm` peers on `typeorm ^0.3.0 || ^1.0.0-dev` rather than the `1.x` stable line. *Impact:* upgrading either requires moving Jest to ESM first; treat as a deliberate trade-off, not an oversight.
+- **R8 — `tsBuildInfoFile` moved into `dist`.** With `incremental: true` and `prebuild: rimraf dist`, a stale buildinfo outside `dist` made `tsc` skip emitting newly added files (entities and migrations silently absent from the build output). *Impact:* none functionally; prevents a confusing "it compiled but the files are missing" failure.
+- **R9 — Seed verification is deliberately two-staged.** The runner's own assertions are not sufficient evidence on their own, for the reason in R6. *Impact:* Phase 4 must keep `seed:verify` and `seed:verify-db` in the test/CI path rather than relying on the runner's exit code.

@@ -29,7 +29,14 @@ services:
       DATABASE_USER: relay
       DATABASE_PASSWORD: relay
       DATABASE_NAME: relay
-    command: ["node", "dist/main.js"]
+    # AC-2.5: migrate and seed run against the compose `db` before the API
+    # starts. Both are idempotent, so this is safe on every boot.
+    command:
+      [
+        "sh",
+        "-c",
+        "npm run migration:run && npm run seed && node dist/main.js",
+      ]
     ports:
       - "3000:3000"
     depends_on:

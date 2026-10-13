@@ -9,6 +9,15 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:run": "typeorm migration:run -d dist/database/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/database/data-source.js",
+    "migration:show": "typeorm migration:show -d dist/database/data-source.js",
+    "migrate": "npm run build && npm run migration:run",
+    "seed": "node dist/database/seed/seed-runner.js",
+    "seed:generate": "node scripts/generate-seed-data.mjs",
+    "seed:verify": "node scripts/verify-seed-data.mjs",
+    "seed:verify-db": "node scripts/verify-seeded-db.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest --config ./test/jest-e2e.json",
@@ -18,8 +27,11 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.3",
+    "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.31"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -28,6 +40,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.2",
     "jest": "^29.7.0",
     "rimraf": "^6.0.1",
@@ -38,13 +51,19 @@
     "typescript": "^5.7.2"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "collectCoverageFrom": [
+      "**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "passWithNoTests": true

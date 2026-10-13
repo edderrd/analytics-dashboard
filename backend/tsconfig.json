@@ -11,6 +11,9 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": "./",
+    /* Keep the buildinfo inside dist so `prebuild: rimraf dist` always clears
+       it. A stale buildinfo outside dist can make tsc skip emitting new files. */
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
