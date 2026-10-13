@@ -66,11 +66,11 @@ These testable acceptance criteria map directly to the specification and phases.
 Every test scenario written in Phase 4 must cite the AC it verifies (e.g. `AC-3.5`). Every AC must be checkable with evidence listed above — no criterion may be marked satisfied on assertion alone.
 
 ### AC-1: Spec compliance & planning (Phase 0)
-- [ ] **AC-1.1** PLAN.md preserved; deviations recorded in `Revisions and plan deviations` with rationale/impact/context.
-- [ ] **AC-1.2** Data inspection completed (per-account timezone, created_at, locations, ranges, counts by event type, weeks of history) and recorded; assumptions (BASELINE_WEEKS/MIN_BASELINE_WEEKS/MIN_BASELINE_OBS/NORMAL_BAND_PCT/week start) validated/updated with evidence.
-- [ ] **AC-1.3** Monorepo scaffolds build: `npm run build` passes in backend and frontend.
-- [ ] **AC-1.4** Docker compose config valid; frontend sanity page renders.
-- [ ] **AC-1.5** No business logic implementation before Phase 0 inspection complete.
+- [x] **AC-1.1** PLAN.md preserved; deviations recorded in `Revisions and plan deviations` with rationale/impact/context. *(Sections retained; R1–R5 added under `Revisions and plan deviations`.)*
+- [x] **AC-1.2** Data inspection completed (per-account timezone, created_at, locations, ranges, counts by event type, weeks of history) and recorded; assumptions (BASELINE_WEEKS/MIN_BASELINE_WEEKS/MIN_BASELINE_OBS/NORMAL_BAND_PCT/week start) validated/updated with evidence. *(See `### 1a) Data inspection findings`.)*
+- [x] **AC-1.3** Monorepo scaffolds build: `npm run build` passes in backend and frontend. *(Verified: `npm run build` at root exit 0; `tsc --noEmit` clean for backend.)*
+- [x] **AC-1.4** Docker compose config valid; frontend sanity page renders. *(Verified: `docker compose config` exit 0; `docker compose build` + `up -d` brought up db (healthy)/backend/frontend; `curl :3000/health` → 200 `{"status":"ok","phase":"scaffold"}`; `curl :5173` → 200; Vitest jsdom render test asserts the page mounts with shadcn Card/Button/Badge wired.)*
+- [x] **AC-1.5** No business logic implementation before Phase 0 inspection complete. *(Only a scaffold `/health` endpoint exists; comparison logic is Phase 2.)*
 
 ### AC-2: Data model, migrations, seed (Phase 1)
 - [ ] **AC-2.1** TypeORM entities (Account, ActivityEvent) match schema exactly (types, nullability, PK/FK, relations Account 1:N ActivityEvent).
@@ -146,6 +146,29 @@ Every test scenario written in Phase 4 must cite the AC it verifies (e.g. `AC-3.
 - Comparison basis: compare totals by event_type (call_received, lead_created, appointment_set) for the reporting period vs baseline mean for the same weekday-of-week pattern aligned to account-local time (to be precise about "this week" in account timezone).
 - Band percentage: using 30% as threshold for when is "tipical" to "above/below"
 
+### 1a) Data inspection findings (Phase 0, AC-1.2)
+
+Evidence: parsed all rows of `seed.sql` (20 account INSERTs, 12626 activity_events INSERTs; counts asserted by a throwaway inspection script, not committed).
+
+**Confirmed facts from the dataset:**
+- 20 accounts, 12626 events. Event range UTC: `2026-02-01 10:57:44` → `2026-07-27 22:20:34`.
+- Locations are labelled `Site A` … `Site O`. Per-account location counts range **1 → 15** (single-site: ids 8, 13, 16, 19; max: id 6 with 15 locations). This validates the multi-location requirement and gives ready fixtures for Phase 3 manual verification.
+- **Account 20 (Quiet Harbor Spa, America/Los_Angeles) has zero events and zero locations.** This is the real "zero-events account" referenced in Phase 3 — no synthetic account is needed. It must render as an explicit empty/no-activity state, not an error.
+- `event_type` values are exactly the three expected. `duration_seconds` is NULL for all non-call events (and for some calls). `outcome` has NULLs and values including values beyond those named in `schema.sql` comments (e.g. `open`, `completed`) — schema comment lists only examples, so no constraint beyond `varchar(40)`.
+- Accounts with events all have ~25 weeks of history, far exceeding BASELINE_WEEKS=8.
+- Weekday pattern is strongly seasonal: Sat ~584 and Sun ~578 events vs ~2112–2892 on weekdays. Weekday-aligned comparison (not a flat daily mean) is materially justified by the data.
+- Fixture week math confirms the plan exactly: last event `2026-07-27` is a **Monday**; its week (07-27 → 08-02) is partial and excluded; previous complete week = **2026-07-20 → 2026-07-26**; 8 weeks before that = **2026-05-25 → 2026-07-19**. Monday-start weeks are therefore consistent with both the data and "Monday morning" in the ticket.
+
+**Assumption validation:**
+- `BASELINE_WEEKS = 8` — **supported.** All 19 accounts with events have complete coverage of all 8 baseline weeks (baseline week indices 0–7 all present); no account has a hole in the window.
+- `MIN_BASELINE_OBS = 3` (non-zero weeks per account/location × event_type) — **supported and not over-strict.** Measured over the fixture window: **57/57** account × event_type pairs have ≥3 non-zero baseline weeks, and **204/207** location × event_type pairs do. Only 3 location×type pairs fall below the threshold and will correctly show "insufficient history". Notably the tightest location/type case still reaches 4/8 weeks, so the rule does not suppress the multi-location view.
+- `MIN_BASELINE_WEEKS = 4` — **cannot trigger on the fixture dataset.** Every account has ~25 weeks of history, so insufficient-history will never fire for the default reporting window. It is reachable only when `asOf` shifts the reporting week back toward the data start (earliest event 2026-02-01), or in tests with synthetic data. Both must be covered in Phase 4.
+- `NORMAL_BAND_PCT = 30` — **plausible but unvalidated; remains an assumption.** It is a product/UX judgement (how wide is "typical"), not derivable from the data. Noted as a trade-off to surface in the README.
+
+**Amendments arising from inspection (see `Revisions and plan deviations`):**
+- Week start is **Monday**, now evidenced rather than assumed.
+- The zero-events case is a real seeded account (id 20), so Phase 3 must not "identify or create" one.
+
 ### 2) Data model and persistence (TypeORM)
 
 **Entities (match schema exactly):**
@@ -217,12 +240,22 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
 ### Phase 0 - Scaffolding
 - **Goal:** Clean repo foundation; apps build; docker-compose wired.
 - **Covers:** AC-1 (planning) and AC-1.3 / AC-1.4 (scaffold + compose).
+- **Status:** ✅ Complete.
+- **Delivered:**
+  - Root `package.json` (npm workspaces: `backend`, `frontend`) + `package-lock.json`.
+  - `backend/` NestJS 11 + TypeScript: `AppModule`, scaffold `AppController` with `GET /health`, tsconfig (`rootDir: src`), `nest-cli.json`, Jest unit config + separate Supertest e2e config (`backend/test/`), multi-stage `Dockerfile`.
+  - `frontend/` Vite 8 + React 19 + TS: Tailwind v4 via `@tailwindcss/vite`, shadcn/ui tokens in `src/index.css` (CSS-first), `cn` util, shadcn primitives `Button` / `Card` / `Badge` under `src/components/ui/`, `components.json` so `shadcn add` works later, sanity page `App.tsx`, Vitest + RTL + jsdom with a render test, multi-stage `Dockerfile` (build → nginx).
+  - `docker-compose.yml`: `db` (postgres:14, healthcheck, named volume), `backend` (depends on healthy db), `frontend` (nginx-served build).
 - **Tasks:**
   1. Inspect data (must): read seed ranges per account, locations, event distributions to confirm baseline/window assumptions; record findings in PLAN.md (assumptions updated if needed).
   2. Scaffold npm workspaces: backend (NestJS) and frontend (Vite+React+TS). 
   3. Wire Tailwind CSS + shadcn/ui into frontend; create minimal sanity page rendering.
   4. Add docker-compose.yml (postgres 14, backend, frontend). Configure env vars.
-  5. **Verify:** `npm run build` in both apps succeeds; `docker compose config` valid; frontend sanity page renders in dev build.
+  5. **Verify:** `npm run build` in both apps succeeds; `docker compose config` valid; frontend sanity page renders in dev build. *(All verified — see AC-1.3 / AC-1.4 evidence.)*
+
+**Deferred to Phase 1 (noted, not blocked):**
+- The compose `backend` service currently runs `node dist/main.js` only. Phase 1 changes its command to `npm run migrate && npm run seed && node dist/main.js` (AC-2.5).
+- TypeORM, `pg`, `class-validator`/`class-transformer` are intentionally **not** installed yet — they arrive with Phase 1/2 code that uses them. Keeping the Phase 0 dependency set honest means the scaffold build proves nothing but the scaffold.
 
 ### Phase 1 - Migration + Seeds
 - **Goal:** Schema and data parity via TypeORM tooling.
@@ -278,4 +311,9 @@ Key rules: banding ±30%, zero-baseline fallbacks, insufficient history (MIN_BAS
 - Determinism and testability throughout.
 
 ## Revisions and plan deviations
-- None yet. All items above are planned; any significant deviation must be recorded here with rationale, impact, and approval context.
+
+- **R1 — Week start: Monday (evidence-based).** Spec §3 previously left week start open ("assume ISO week? Or Monday start"). Inspection confirms the last seeded event (2026-07-27) is a Monday and that Monday-start weeks reproduce the planned fixture windows exactly (reporting 2026-07-20 → 2026-07-26, baseline 2026-05-25 → 2026-07-19). Decision: **Monday-start weeks**, aligned in account-local time then converted to UTC. *Impact:* none on the stated fixture dates; removes an open question for Phase 2.
+- **R2 — Zero-events account is real, not synthetic.** Phase 3 task 5 said "identify/create such case if needed". Inspection found seeded account **20 (Quiet Harbor Spa)** has zero events and zero locations. *Impact:* Phase 3 must use account 20 and must not fabricate data. The empty-state path is therefore load-bearing for the seeded dataset, not hypothetical.
+- **R3 — `MIN_BASELINE_WEEKS` is unreachable on this dataset.** All 19 accounts with events have ~25 weeks of history, so the insufficient-history rule cannot fire for the default reporting window. *Impact:* Phase 4 must cover it via `asOf` shifted toward the data start (2026-02-01) or synthetic fixtures; the manual Phase 3 walkthrough will not surface it. Recorded so this is not mistaken for a missed edge case.
+- **R4 — `outcome` vocabulary is wider than `schema.sql` comments.** Observed values include `open` and `completed`, beyond those named in the schema comment. *Impact:* Phase 1 must keep `outcome` as unconstrained `varchar(40)` and must not add an enum/check based on the comment examples.
+- **R5 — `duration_seconds` is NULL for all non-call events**, not merely "only meaningful for calls". *Impact:* no change to the entity shape (still nullable integer); recorded so Phase 2 does not attempt duration aggregations across event types.
