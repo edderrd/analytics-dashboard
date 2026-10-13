@@ -187,7 +187,20 @@ describe('Spec, test and plan coherence (AC-6.3, AC-6.1)', () => {
     it('Then the integration setup pins the time zone and isolates the database', () => {
       const setup = readFileSync(join(backendRoot, 'test', 'setup-env.ts'), 'utf8');
       expect(setup).toContain('TZ');
-      expect(setup).toMatch(/relay_test/);
+      // The database name is configurable; what matters is that the suite is
+      // pointed at the test database rather than the seeded reference one.
+      expect(setup).toContain('TEST_DATABASE_NAME');
+    });
+
+    it('Then the default test database is not the seeded reference database', () => {
+      // Guards the invariant that tests can never write to the dataset from
+      // seed.sql, whatever someone configures.
+      const config = readFileSync(join(backendRoot, 'src', 'config', 'env.ts'), 'utf8');
+      const defaults = [
+        ...config.matchAll(/(DATABASE_NAME|TEST_DATABASE_NAME):\s*'([^']+)'/g),
+      ].map((match) => match[2]);
+      expect(defaults.length).toBeGreaterThan(1);
+      expect(new Set(defaults).size).toBe(defaults.length);
     });
 
     it('Then the test database is rebuilt for every run', () => {

@@ -14,11 +14,15 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import dotenv from 'dotenv';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(here, '..');
 
-const adminDatabase = process.env.DATABASE_NAME ?? 'relay';
+// Honour backend/.env when present so local overrides apply to the test
+// database too, while anything already in the environment still wins.
+dotenv.config({ path: join(backendRoot, '.env') });
+
 const testDatabase = process.env.TEST_DATABASE_NAME ?? 'relay_test';
 
 const connection = {

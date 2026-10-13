@@ -3,12 +3,13 @@ import { DataSource, type LogLevel } from 'typeorm';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 
 import { registerUtcTimestampParser } from './pg-timestamp';
+import { env } from '../config';
 
 import { ActivityEvent } from './entities/activity-event.entity';
 import { Account } from './entities/account.entity';
 import { InitialSchema1710000000000 } from './migrations/1710000000000-InitialSchema';
 
-const isProductionLike = process.env.NODE_ENV === 'production';
+const isProductionLike = env.NODE_ENV === 'production';
 
 const logging: LogLevel[] = isProductionLike
   ? ['error']
@@ -25,11 +26,11 @@ const logging: LogLevel[] = isProductionLike
  */
 export const dataSourceOptions: PostgresConnectionOptions = {
   type: 'postgres',
-  host: process.env.DATABASE_HOST ?? 'localhost',
-  port: Number(process.env.DATABASE_PORT ?? 5432),
-  username: process.env.DATABASE_USER ?? 'relay',
-  password: process.env.DATABASE_PASSWORD ?? 'relay',
-  database: process.env.DATABASE_NAME ?? 'relay',
+  host: env.DATABASE_HOST,
+  port: env.DATABASE_PORT,
+  username: env.DATABASE_USER,
+  password: env.DATABASE_PASSWORD,
+  database: env.DATABASE_NAME,
   // Postgres has no `timezone` DataSource option in TypeORM 0.3.x; the session
   // time zone is pinned through libpq options instead.
   extra: {
