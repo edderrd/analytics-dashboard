@@ -29,11 +29,11 @@ docker compose up --build
 
 That builds both apps, starts PostgreSQL, applies the migration, loads the seed dataset, and serves:
 
-| Service   | URL                   |
-| --------- | --------------------- |
+| Service   | URL                     |
+| --------- | ----------------------- |
 | Dashboard | <http://localhost:5173> |
 | API       | <http://localhost:3000> |
-| Database  | `localhost:5432`      |
+| Database  | `localhost:5432`        |
 
 Migrations and seeding run automatically on every boot and are idempotent, so restarts are safe.
 
@@ -314,7 +314,7 @@ Deliberately out of scope for this exercise, listed so the boundaries are explic
 - **The baseline window and band are constants, not per-customer settings.**
 - **The seed is loaded synchronously on boot**, which is fine for 12k rows and would need a batched
   loader for a real dataset.
-  **no LLM fit**: more explanation in PLAN.md
+  **no LLM fit**: more explanation in [PLAN.md](/PLAN.md#where-would-an-llm-fit)
 
 ---
 
@@ -340,4 +340,3 @@ scripts/verify.mjs      Single verification entry point
 
 `PLAN.md` is the reference for design decisions, acceptance criteria and the full list of recorded
 deviations — start there if you want to understand _why_ something is the way it is.
-
