@@ -36,5 +36,12 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.spec.{ts,tsx}'],
+    // The opt-in live suites run against a real backend on the default port.
+    // Without this they resolve `/api` against jsdom's origin and fail, which
+    // made the command documented in the README (RELAY_LIVE_API=1 only) wrong.
+    // Hermetic suites stub fetch, so this default does not affect them.
+    env: {
+      VITE_API_BASE_URL: 'http://localhost:3000',
+    },
   },
 })
