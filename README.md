@@ -20,7 +20,8 @@ specification, the reasoning behind it, and every deviation recorded along the w
 ## Quick start
 
 Requires Docker and Docker Compose. **No configuration file is needed** — every setting has a
-working default.
+working default. This path installs nothing on your machine; `npm install` is only needed if you
+want to run the apps, tests or scripts directly (see below).
 
 ```bash
 docker compose up --build
@@ -229,12 +230,16 @@ migrated and re-seeded on every run.
 ## Testing
 
 ```bash
+npm install                 # required once; the Compose quick start does not need it
 docker compose up -d db     # integration tests need a database
 
 npm test                    # everything: backend unit + frontend + backend integration
 npm run verify              # the above, plus builds, typecheck and seed verification
 npm run verify:live         # the above, plus the live frontend suites
 ```
+
+`npm run verify` and `npm run verify:live` build the backend, so they take slightly longer than
+`npm test` on a cold run.
 
 The live suites render the real components against a running backend instead of a stub:
 
