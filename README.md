@@ -4,7 +4,7 @@ A small B2B SaaS dashboard that answers one question at a glance: **"is this wee
 
 For each customer it compares their latest complete week of inbound activity — calls, leads and
 appointments — against **their own history**, at account level and per location, and labels each
-metric *typical*, *above* or *below* with the reason. It is built for a customer admin opening it on
+metric _typical_, _above_ or _below_ with the reason. It is built for a customer admin opening it on
 a Monday morning and wanting to act, not to export data.
 
 - **Frontend:** React 19 + TypeScript, Vite, Tailwind CSS v4, shadcn/ui
@@ -29,11 +29,11 @@ docker compose up --build
 
 That builds both apps, starts PostgreSQL, applies the migration, loads the seed dataset, and serves:
 
-| Service  | URL                     |
-| -------- | ----------------------- |
-| Dashboard| http://localhost:5173   |
-| API      | http://localhost:3000   |
-| Database | `localhost:5432`        |
+| Service   | URL                   |
+| --------- | --------------------- |
+| Dashboard | <http://localhost:5173> |
+| API       | <http://localhost:3000> |
+| Database  | `localhost:5432`      |
 
 Migrations and seeding run automatically on every boot and are idempotent, so restarts are safe.
 
@@ -57,41 +57,41 @@ The frontend proxies `/api` to the backend, so both run same-origin from the bro
 
 ### Repository root
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Backend (watch) and frontend dev server together |
-| `npm run build` | Build both workspaces |
-| `npm test` | Backend unit tests, frontend tests, **and** backend integration tests |
-| `npm run test:backend` | Backend unit tests only (no database needed) |
-| `npm run test:frontend` | Frontend tests only (no backend needed) |
-| `npm run test:e2e` | Backend integration tests (provisions its own test database) |
-| `npm run verify` | Full check: seed verification, both builds, backend typecheck, all test suites |
-| `npm run verify:live` | The above **plus** the opt-in live frontend suites (needs the stack running) |
-| `npm run build:backend` / `npm run build:frontend` | Build one workspace |
+| Command                                            | What it does                                                                   |
+| -------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `npm run dev`                                      | Backend (watch) and frontend dev server together                               |
+| `npm run build`                                    | Build both workspaces                                                          |
+| `npm test`                                         | Backend unit tests, frontend tests, **and** backend integration tests          |
+| `npm run test:backend`                             | Backend unit tests only (no database needed)                                   |
+| `npm run test:frontend`                            | Frontend tests only (no backend needed)                                        |
+| `npm run test:e2e`                                 | Backend integration tests (provisions its own test database)                   |
+| `npm run verify`                                   | Full check: seed verification, both builds, backend typecheck, all test suites |
+| `npm run verify:live`                              | The above **plus** the opt-in live frontend suites (needs the stack running)   |
+| `npm run build:backend` / `npm run build:frontend` | Build one workspace                                                            |
 
 ### Backend
 
-| Command | What it does |
-| --- | --- |
-| `npm run start:dev --workspace backend` | API with file watching |
-| `npm run migrate --workspace backend` | Build, then apply pending migrations |
-| `npm run migration:show --workspace backend` | List migrations and whether they have run |
-| `npm run migration:revert --workspace backend` | Roll the last migration back |
-| `npm run seed --workspace backend` | Load the dataset (skips if already present) |
-| `npm run seed:generate --workspace backend` | Regenerate the seed module from `seed.sql` |
-| `npm run seed:verify --workspace backend` | Check the seed module against `seed.sql`, field by field |
-| `npm run seed:verify-db --workspace backend` | Check the **database** against `seed.sql` as raw text |
-| `npm run lint --workspace backend` | Typecheck without emitting |
+| Command                                        | What it does                                             |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| `npm run start:dev --workspace backend`        | API with file watching                                   |
+| `npm run migrate --workspace backend`          | Build, then apply pending migrations                     |
+| `npm run migration:show --workspace backend`   | List migrations and whether they have run                |
+| `npm run migration:revert --workspace backend` | Roll the last migration back                             |
+| `npm run seed --workspace backend`             | Load the dataset (skips if already present)              |
+| `npm run seed:generate --workspace backend`    | Regenerate the seed module from `seed.sql`               |
+| `npm run seed:verify --workspace backend`      | Check the seed module against `seed.sql`, field by field |
+| `npm run seed:verify-db --workspace backend`   | Check the **database** against `seed.sql` as raw text    |
+| `npm run lint --workspace backend`             | Typecheck without emitting                               |
 
 ### Frontend
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev --workspace frontend` | Vite dev server on :5173 |
-| `npm run build --workspace frontend` | Typecheck and build for production |
+| Command                                | What it does                       |
+| -------------------------------------- | ---------------------------------- |
+| `npm run dev --workspace frontend`     | Vite dev server on :5173           |
+| `npm run build --workspace frontend`   | Typecheck and build for production |
 | `npm run preview --workspace frontend` | Serve the production build locally |
-| `npm run test --workspace frontend` | Vitest suites |
-| `npm run lint --workspace frontend` | Lint |
+| `npm run test --workspace frontend`    | Vitest suites                      |
+| `npm run lint --workspace frontend`    | Lint                               |
 
 ---
 
@@ -120,7 +120,7 @@ so the application cannot end up pointed at a different database than the one Co
 The rules live in `backend/src/modules/comparisons/` and are recorded, with their justification, in
 [`PLAN.md`](./PLAN.md).
 
-**Reporting period.** The latest *complete* Monday–Sunday week, resolved in the account's own IANA
+**Reporting period.** The latest _complete_ Monday–Sunday week, resolved in the account's own IANA
 time zone. `asOf` names a date inside the current, possibly incomplete week; the reporting week is
 the one before it. The default `asOf` comes from the newest event in the data — never from the system
 clock — so the dashboard is reproducible.
@@ -130,15 +130,15 @@ weeks, each in account-local time.
 
 **Status.** With `baselineMean` the mean events per baseline week:
 
-| Condition | Status |
-| --- | --- |
-| `baselineMean == 0`, no activity this week | `typical` (reason `zero_baseline_no_activity`) |
-| `baselineMean == 0`, activity this week | `above` (reason `zero_baseline_new_activity`) |
-| `\|change\| ≤ 30%` | `typical` |
-| `change > 30%` | `above` |
-| `change < -30%` | `below` |
-| Fewer than 4 complete weeks of history | `insufficient_history` (`not_enough_history`) |
-| Fewer than 3 active baseline weeks | `insufficient_history` (`not_enough_observations`) |
+| Condition                                  | Status                                             |
+| ------------------------------------------ | -------------------------------------------------- |
+| `baselineMean == 0`, no activity this week | `typical` (reason `zero_baseline_no_activity`)     |
+| `baselineMean == 0`, activity this week    | `above` (reason `zero_baseline_new_activity`)      |
+| `\|change\| ≤ 30%`                         | `typical`                                          |
+| `change > 30%`                             | `above`                                            |
+| `change < -30%`                            | `below`                                            |
+| Fewer than 4 complete weeks of history     | `insufficient_history` (`not_enough_history`)      |
+| Fewer than 3 active baseline weeks         | `insufficient_history` (`not_enough_observations`) |
 
 A percentage is never reported against a zero baseline — there is no such thing as "∞% above
 nothing". The API returns a structured state instead, never a fabricated number.
@@ -157,14 +157,14 @@ nothing". The API returns a structured state instead, never a fabricated number.
 
 Read-only JSON. No authentication (explicitly out of scope for this exercise).
 
-| Endpoint | Description |
-| --- | --- |
-| `GET /health` | Liveness check |
-| `GET /accounts` | All accounts, sorted by name, with location counts |
-| `GET /accounts/:id` | One account: industry, timezone, creation time, locations |
-| `GET /accounts/:id/locations` | Distinct locations with recorded activity |
-| `GET /accounts/:id/comparison` | Account-level comparison |
-| `GET /accounts/:id/comparison/locations` | Per-location comparison |
+| Endpoint                                 | Description                                               |
+| ---------------------------------------- | --------------------------------------------------------- |
+| `GET /health`                            | Liveness check                                            |
+| `GET /accounts`                          | All accounts, sorted by name, with location counts        |
+| `GET /accounts/:id`                      | One account: industry, timezone, creation time, locations |
+| `GET /accounts/:id/locations`            | Distinct locations with recorded activity                 |
+| `GET /accounts/:id/comparison`           | Account-level comparison                                  |
+| `GET /accounts/:id/comparison/locations` | Per-location comparison                                   |
 
 Query parameters: `asOf=YYYY-MM-DD`, `eventTypes=call_received,lead_created`,
 `locations=Site A,Site B`.
@@ -185,7 +185,7 @@ structured state — never a `5xx`.
     "reportingWeekEndLocal": "2026-07-26",
     "baselineWindowStartLocal": "2026-05-25",
     "baselineWindowEndLocal": "2026-07-19",
-    "baselineWeeks": 8
+    "baselineWeeks": 8,
   },
   "hasActivity": true,
   "locations": ["Site A", "…"],
@@ -199,9 +199,9 @@ structured state — never a `5xx`.
       "status": "below",
       "reason": "outside_normal_band",
       "baselineNonZeroWeeks": 8,
-      "availableBaselineWeeks": 8
-    }
-  ]
+      "availableBaselineWeeks": 8,
+    },
+  ],
 }
 ```
 
@@ -250,12 +250,12 @@ RELAY_LIVE_API=1 npm test --workspace frontend
 
 They are opt-in so that the default `npm test` stays hermetic and needs nothing running.
 
-| Suite | Count | Needs |
-| --- | --- | --- |
-| Backend unit (jest) | 63 | nothing |
-| Frontend (vitest) | 15 | nothing |
-| Frontend live (vitest) | 27 | the running stack |
-| Backend integration (Supertest) | 62 | a reachable database |
+| Suite                           | Count | Needs                |
+| ------------------------------- | ----- | -------------------- |
+| Backend unit (jest)             | 63    | nothing              |
+| Frontend (vitest)               | 15    | nothing              |
+| Frontend live (vitest)          | 27    | the running stack    |
+| Backend integration (Supertest) | 62    | a reachable database |
 
 Business rules are documented as Gherkin features in `backend/test/features/`, and a coherence test
 fails the build if a feature loses its implementing specs, if a scenario stops being covered, or if
@@ -277,7 +277,7 @@ Honest notes on the choices made, including the ones I would revisit.
 - **A zero baseline surfaces as "not enough history", not "new activity".** `MIN_BASELINE_OBS`
   rejects a baseline with no active weeks before the zero-baseline branch runs, so the API never
   emits `zero_baseline_new_activity`. The behaviour is defensible and nothing is fabricated, but for a
-  metric that never happens at a customer, *"this is new"* would be the more useful answer. Changing
+  metric that never happens at a customer, _"this is new"_ would be the more useful answer. Changing
   it is a product decision, recorded as an open question in `PLAN.md` (R20).
 - **A native `<select>` for the location picker** rather than the Radix-based shadcn Select: it is
   keyboard- and screen-reader-native with no extra ARIA wiring and behaves reliably under jsdom,
@@ -314,6 +314,7 @@ Deliberately out of scope for this exercise, listed so the boundaries are explic
 - **The baseline window and band are constants, not per-customer settings.**
 - **The seed is loaded synchronously on boot**, which is fine for 12k rows and would need a batched
   loader for a real dataset.
+  **no LLM fit**: more explanation in PLAN.md
 
 ---
 
@@ -338,4 +339,5 @@ scripts/verify.mjs      Single verification entry point
 ```
 
 `PLAN.md` is the reference for design decisions, acceptance criteria and the full list of recorded
-deviations — start there if you want to understand *why* something is the way it is.
+deviations — start there if you want to understand _why_ something is the way it is.
+
