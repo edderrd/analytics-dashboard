@@ -9,6 +9,7 @@ import {
   type LocalDate,
 } from '../../common/dates/local-date';
 import { utcToLocalDate, weekBoundsUtc } from '../../common/dates/account-time';
+import { dateToUtcTimestamp } from '../../database/pg-timestamp';
 import { ActivityEvent } from '../../database/entities/activity-event.entity';
 import { Account } from '../../database/entities/account.entity';
 import {
@@ -232,10 +233,20 @@ export class ComparisonsService {
    * One aggregation query covering the whole baseline + reporting window.
    *
    * Day bucketing happens in Postgres because which calendar day an event
-   * belongs to depends on the account's zone;
-   * `(occurred_at AT TIME ZONE $tz)::date` resolves that without shipping every
-   * row to the application. Only the resulting daily buckets are mapped to
-   * weeks in memory (PLAN.md AC-3.1).
+   * belongs to depends on the account's zone; only the resulting daily buckets
+   * are mapped to weeks in memory (PLAN.md AC-3.1).
+   *
+   * The zone expression needs both steps:
+   *
+   *   occurred_at                -- UTC wall clock, no zone (schema.sql)
+   *   AT TIME ZONE 'UTC'         -- interpret it as the instant it is
+   *   AT TIME ZONE $accountZone  -- express that instant in the account's zone
+   *   ::date                     -- the account's local calendar day
+   *
+   * Dropping either step silently yields the **UTC** date instead, because
+   * `timestamp without time zone AT TIME ZONE zone` *interprets* the value as
+   * already being in `zone` rather than converting it. That mistake attributed
+   * events to the wrong local day for every account west of UTC (PLAN.md R18).
    */
   private async dailyCounts(
     account: Account,
@@ -247,15 +258,26 @@ export class ComparisonsService {
     return this.events.query<DailyCountRow[]>(
       `SELECT location,
               event_type,
-              to_char((occurred_at AT TIME ZONE $2)::date, 'YYYY-MM-DD') AS local_date,
+              to_char(
+                (occurred_at AT TIME ZONE 'UTC' AT TIME ZONE $2)::date,
+                'YYYY-MM-DD'
+              ) AS local_date,
               COUNT(*)::int AS n
          FROM activity_events
         WHERE account_id = $1
           AND occurred_at >= $3
           AND occurred_at <  $4
-        GROUP BY location, event_type, (occurred_at AT TIME ZONE $2)::date
+        GROUP BY location, event_type,
+                 (occurred_at AT TIME ZONE 'UTC' AT TIME ZONE $2)::date
         ORDER BY location, event_type, local_date`,
-      [account.id, account.timezone, baseline.startUtc, reporting.endExclusiveUtc],
+      [
+        account.id,
+        account.timezone,
+        // Bound as UTC literals, never as Date objects: the driver would format
+        // them in the process time zone and quietly shift the window (R19).
+        dateToUtcTimestamp(baseline.startUtc),
+        dateToUtcTimestamp(reporting.endExclusiveUtc),
+      ],
     );
   }
 

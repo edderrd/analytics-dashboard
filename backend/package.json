@@ -20,6 +20,8 @@
     "seed:verify-db": "node scripts/verify-seeded-db.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
+    "pretest:e2e": "npm run test:e2e:setup",
+    "test:e2e:setup": "npm run build && node scripts/setup-test-database.mjs",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "lint": "tsc --noEmit"
   },

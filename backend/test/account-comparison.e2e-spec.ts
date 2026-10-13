@@ -108,11 +108,17 @@ describe('GET /accounts/:id/comparison', () => {
       expect(response.body.periods.reportingWeekEndExclusiveUtc).toBe(
         '2026-07-27T07:00:00.000Z',
       );
-      expect(response.body.totals).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ eventType: 'call_received', recentCount: 30 }),
-        ]),
+
+      // Counted in the account's local days. These figures are the ones an
+      // events occurring in the hours after local midnight (which are the
+      // previous UTC day) belong to this week, not the previous one; getting
+      // them from a UTC-date bucketing is the bug recorded in R19.
+      const byType = Object.fromEntries(
+        response.body.totals.map((t: { eventType: string }) => [t.eventType, t]),
       );
+      expect(byType.call_received).toMatchObject({ recentCount: 31, baselineMean: 34 });
+      expect(byType.lead_created).toMatchObject({ recentCount: 17, baselineMean: 13.6 });
+      expect(byType.appointment_set).toMatchObject({ recentCount: 6, baselineMean: 6.8 });
     });
   });
 

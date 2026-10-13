@@ -34,3 +34,18 @@ export function registerUtcTimestampParser(): void {
 export function toUtcTimestamp(value: string): string {
   return value;
 }
+
+/**
+ * A `Date` -> the UTC wall-clock literal `'YYYY-MM-DD HH:MM:SS'`.
+ *
+ * Used for **query parameters** as well as inserts. node-postgres serialises a
+ * `Date` using the process time zone, so binding `2026-07-27T05:00:00Z` from a
+ * host in UTC-6 reaches Postgres as `2026-07-26 23:00:00` and silently
+ * narrows the window. That bug is recorded in PLAN.md R6 and R19.
+ */
+export function dateToUtcTimestamp(date: Date): string {
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Cannot format an invalid Date: ${String(date)}`);
+  }
+  return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '');
+}

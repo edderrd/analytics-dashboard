@@ -11,6 +11,8 @@
     "build": "npm run build --workspaces",
     "dev": "npm run dev --workspaces",
     "test": "npm run test --workspaces",
+    "verify": "node scripts/verify.mjs",
+    "verify:live": "node scripts/verify.mjs --live",
     "build:backend": "npm run build --workspace backend",
     "build:frontend": "npm run build --workspace frontend",
     "test:backend": "npm run test --workspace backend",
